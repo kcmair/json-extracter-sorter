@@ -43,17 +43,17 @@ public class JsonParser {
             validFile = true;
         }
 
-        // Prompt the user for the CSV file path and name
-        System.out.println("Enter the path and filename to save the CSV file:");
+        // Prompt the user for the new file path and name
+        System.out.println("Enter the path and filename to save the new file:");
         String newFilePath = scanner.nextLine();
 
         // Create parent directories if they don't exist
-        File csvFile = new File(newFilePath);
-        File parentDirectory = csvFile.getParentFile();
+        File newFile = new File(newFilePath);
+        File parentDirectory = newFile.getParentFile();
         if (parentDirectory != null && !parentDirectory.exists()) {
             boolean directoriesCreated = parentDirectory.mkdirs();
             if (!directoriesCreated) {
-                System.out.println("Error: Failed to create directories for CSV file.");
+                System.out.println("Error: Failed to create directories for the new file.");
                 return;
             }
         }
@@ -76,7 +76,7 @@ public class JsonParser {
             writer.close();
 
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "An error occurred while processing the JSON file", e);
+            LOGGER.log(Level.SEVERE, "An error occurred while processing the new JSON file", e);
         }
     }
 
