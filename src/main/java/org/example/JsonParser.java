@@ -2,18 +2,18 @@ package org.example;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.TreeMap;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-public class JsonToCsvConverter {
+public class JsonParser {
     static boolean validFile = false;
     static String jsonFilePath;
     static File jsonFile;
+    private static final Logger LOGGER = Logger.getLogger(JsonParser.class.getName());
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -23,10 +23,9 @@ public class JsonToCsvConverter {
             // Prompt the user for the JSON file path and name
             System.out.println("Enter the path and filename of the JSON file:");
             jsonFilePath = scanner.nextLine();
-            System.out.println("jasonFilePath = " + jsonFilePath);
+            jsonFile = new File(jsonFilePath);
 
             // Check if the JSON file exists
-            jsonFile = new File(jsonFilePath);
             if (!jsonFile.exists()) {
                 System.out.println("Error: JSON file does not exist.");
                 validFile = false;
@@ -46,10 +45,10 @@ public class JsonToCsvConverter {
 
         // Prompt the user for the CSV file path and name
         System.out.println("Enter the path and filename to save the CSV file:");
-        String csvFilePath = scanner.nextLine();
+        String newFilePath = scanner.nextLine();
 
         // Create parent directories if they don't exist
-        File csvFile = new File(csvFilePath);
+        File csvFile = new File(newFilePath);
         File parentDirectory = csvFile.getParentFile();
         if (parentDirectory != null && !parentDirectory.exists()) {
             boolean directoriesCreated = parentDirectory.mkdirs();
@@ -62,39 +61,22 @@ public class JsonToCsvConverter {
         ObjectMapper objectMapper = new ObjectMapper();
         try {
             JsonNode rootNode = objectMapper.readTree(jsonFile);
-            JsonNode itemsNode = rootNode.get("Items");
 
-            // TreeMap to store data sorted by date
-            Map<String, String> dataByDate = new TreeMap<>();
-
-            // Iterate through JSON objects
-            for (JsonNode itemNode : itemsNode) {
+            // Convert JSON data to a hierarchical map
+            Map<String, Map<String, String>> dataMap = new TreeMap<>(Collections.reverseOrder());
+            for (JsonNode itemNode : rootNode.get("Items")) {
                 String date = itemNode.get("sampleFolder").get("S").asText();
                 String sampleId = itemNode.get("sampleId").get("S").asText();
-                dataByDate.put(date, sampleId);
+                dataMap.computeIfAbsent(date, _ -> new HashMap<>()).put(sampleId, null);
             }
 
-            // Prepare CSV file
-            FileWriter csvWriter = new FileWriter(csvFilePath, true); // Open in append mode
-            if (new File(csvFilePath).length() == 0) { // Check if CSV file is empty
-                csvWriter.append("Date,Sample Code\n"); // Add header only if the file is empty
-            }
-
-            // Write sorted data to CSV file
-            for (Map.Entry<String, String> entry : dataByDate.entrySet()) {
-                csvWriter.append(entry.getKey()).append(",").append(entry.getValue()).append("\n");
-            }
-
-            // Close CSV writer
-            csvWriter.flush();
-            csvWriter.close();
-
-            System.out.println("CSV file generated successfully.");
+            // Write hierarchical map to JSON file
+            FileWriter writer = new FileWriter(newFilePath);
+            objectMapper.writeValue(writer, dataMap);
+            writer.close();
 
         } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            scanner.close();
+            LOGGER.log(Level.SEVERE, "An error occurred while processing the JSON file", e);
         }
     }
 
