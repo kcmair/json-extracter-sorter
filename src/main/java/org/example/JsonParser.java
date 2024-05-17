@@ -3,7 +3,6 @@ package org.example;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
 import java.util.logging.Level;
@@ -17,8 +16,37 @@ public class JsonParser {
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
-        System.out.println("The current working directory is " + System.getProperty("user.dir"));
 
+        // Set the DynamoDB table name
+        String tableName = "codes_by_date";
+
+        DynamoDBHelper dynamoDBHelper = new DynamoDBHelper(tableName);
+
+        while (true) {
+            // Prompt the user for the desired action
+            System.out.println("What do you want to do? (read/write/delete/quit):");
+            String action = scanner.nextLine().toLowerCase();
+
+            switch (action) {
+                case "write":
+                    writeData(scanner, dynamoDBHelper);
+                    break;
+                case "read":
+                    readData(scanner, dynamoDBHelper);
+                    break;
+                case "delete":
+                    deleteData(scanner, dynamoDBHelper);
+                    break;
+                case "quit":
+                    System.out.println("Exiting the program.");
+                    return;
+                default:
+                    System.out.println("Invalid action. Please enter 'read', 'write', 'delete', or 'quit'.");
+            }
+        }
+    }
+
+    private static void writeData(Scanner scanner, DynamoDBHelper dynamoDBHelper) {
         while (!validFile) {
             // Prompt the user for the JSON file path and name
             System.out.println("Enter the path and filename of the JSON file:");
@@ -43,41 +71,49 @@ public class JsonParser {
             validFile = true;
         }
 
-        // Prompt the user for the new file path and name
-        System.out.println("Enter the path and filename to save the new file:");
-        String newFilePath = scanner.nextLine();
-
-        // Create parent directories if they don't exist
-        File newFile = new File(newFilePath);
-        File parentDirectory = newFile.getParentFile();
-        if (parentDirectory != null && !parentDirectory.exists()) {
-            boolean directoriesCreated = parentDirectory.mkdirs();
-            if (!directoriesCreated) {
-                System.out.println("Error: Failed to create directories for the new file.");
-                return;
-            }
-        }
-
         ObjectMapper objectMapper = new ObjectMapper();
         try {
             JsonNode rootNode = objectMapper.readTree(jsonFile);
 
-            // Convert JSON data to a hierarchical map
-            Map<String, Map<String, String>> dataMap = new TreeMap<>(Collections.reverseOrder());
+            // Convert JSON data to a map with date as key and list of sampleIds as value
+            Map<String, List<String>> dataMap = new TreeMap<>(Collections.reverseOrder());
             for (JsonNode itemNode : rootNode.get("Items")) {
                 String date = itemNode.get("sampleFolder").get("S").asText();
                 String sampleId = itemNode.get("sampleId").get("S").asText();
-                dataMap.computeIfAbsent(date, _ -> new HashMap<>()).put(sampleId, null);
+                dataMap.computeIfAbsent(date, _ -> new ArrayList<>()).add(sampleId);
             }
 
-            // Write hierarchical map to JSON file
-            FileWriter writer = new FileWriter(newFilePath);
-            objectMapper.writeValue(writer, dataMap);
-            writer.close();
+            // Use DynamoDBHelper to write data
+            dynamoDBHelper.writeData(dataMap);
 
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "An error occurred while processing the new JSON file", e);
+            LOGGER.log(Level.SEVERE, "An error occurred while processing the JSON file", e);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "An error occurred while interacting with DynamoDB", e);
         }
+    }
+
+    private static void readData(Scanner scanner, DynamoDBHelper dynamoDBHelper) {
+        // Prompt the user for a date to retrieve sampleIds
+        System.out.println("Enter the date to retrieve sample IDs:");
+        String queryDate = scanner.nextLine();
+        List<String> sampleIds = dynamoDBHelper.getSampleIdsByDate(queryDate);
+
+        if (sampleIds != null) {
+            System.out.println("Sample IDs for date " + queryDate + ":");
+            for (String id : sampleIds) {
+                System.out.println(id + ",");
+            }
+        } else {
+            System.out.println("No sample IDs found for date " + queryDate);
+        }
+    }
+
+    private static void deleteData(Scanner scanner, DynamoDBHelper dynamoDBHelper) {
+        // Prompt the user for a date to delete
+        System.out.println("Enter the date to delete:");
+        String deleteDate = scanner.nextLine();
+        dynamoDBHelper.deleteDataByDate(deleteDate);
     }
 
     // Method to check if the given file is a valid JSON file
