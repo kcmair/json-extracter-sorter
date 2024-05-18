@@ -10,7 +10,7 @@ This program is designed to read a JSON format file containing multiple pieces o
 To run this program, go to the project's root folder in a terminal window and type npm start. You will be asked if you want to read, write, or delete from the database. To read or delete data, type in the date for the data you want to retrieve or remove. To write to the database, type in the path and filename of the file you would like to parse and add to the DB.
 
 
-[Software Demo Video]()
+[Software Demo Video](https://youtu.be/xGvjbxCXqT8)
 
 
 # Cloud Database
